@@ -8,13 +8,46 @@ import os, random, time
 ############################################
 FOLDER = "/home/charlie/Pictures/h"
 SIZE = 800, 600
+BORDER_RADIUS = 200
 ############################################
 
 
 
 
 ############################################
+class Rectangle(pygame.sprite.Sprite):
+    def __init__(self, animation, ratio):
+        pygame.sprite.Sprite.__init__(self)
+        self.original_image = pygame.Surface(SIZE)
+        self.original_image.fill((255, 0, 0))
+        self.scaling_factor = ratio*0.6
 
+        self.image = self.textureImage = self.original_image
+        self.rect = self.image.get_rect()
+        self.frames = animation.get_frames(animation.filename)
+        self.currentFrame = 0
+
+    def set_rounded(self, roundness):
+        size = self.original_image.get_size()
+        self.rect_image = pygame.Surface(SIZE, pygame.SRCALPHA)
+        pygame.draw.rect(self.rect_image, (255, 255, 255), (0, 0, *size), border_radius=roundness)
+
+        self.image = self.original_image.copy().convert_alpha()
+        self.image.blit(self.rect_image, (0, 0), None, pygame.BLEND_RGBA_MIN)
+
+    def update(self, *args, **kwargs):
+        self.rect = self.image.get_rect()
+        charImage = self.frames[self.currentFrame][0]
+        self.currentFrame += 1
+        if self.currentFrame == len(self.frames):
+            self.currentFrame = 0
+
+        charImage = pygame.transform.scale(charImage, self.original_image.get_size())
+        charImage = charImage.convert()
+        self.original_image.blit(charImage, self.rect)
+
+        self.image = self.original_image.copy().convert_alpha()
+        self.image.blit(self.rect_image, (0, 0), None, pygame.BLEND_RGBA_MIN)
 
 class Gifator:
 
@@ -24,6 +57,7 @@ class Gifator:
         self.animation = None
         self.lastTime = None
         self.rect = None
+        self.spriteGroup = None
         pygame.init()
         self.screen = pygame.display.set_mode(SIZE)
         self.getRandomGif()
@@ -31,26 +65,26 @@ class Gifator:
 
     def getRandomGif(self):
         self.gif = os.path.join(FOLDER, random.choice(self.gifList))
-        self.animation = AnimatedGifSprite((50, 50), self.gif)
+        self.animation = AnimatedGifSprite((0, 0), self.gif)
 
         #resize
         H_ratio = min(self.animation.get_height(), SIZE[1]) / max(self.animation.get_height(), SIZE[1])
         W_ratio = min(self.animation.get_width(), SIZE[0]) / max(self.animation.get_width(), SIZE[0])
         ratio = max(H_ratio, W_ratio)
-        self.animation.scale(W_ratio)
-        self.animation.x = SIZE[0]/2. - self.animation.get_width()/2.
-        self.animation.y = SIZE[1]/2. - self.animation.get_height()/2.
+        self.animation.scale(ratio)
 
-        """
-        self.sprite.scale_x = W_ratio
-        self.sprite.scale_y = H_ratio
+        self.animation.rect.x = SIZE[0]/2. - self.animation.get_width()*ratio/2.
+        self.animation.rect.y = SIZE[1]/2. - self.animation.get_height()*ratio/2.
 
-        """
+        self.rect = Rectangle(self.animation, ratio)
+        self.rect.set_rounded(BORDER_RADIUS)
+        self.rect.rect.center = self.screen.get_rect().center
 
-        #round Corner
-        #size = self.sprite.width
-        #self.rect = pyglet.Surface(600,600, pyglet.SRCALPHA)
-        #pg.draw.rect(self.rect_image, (255, 255, 255), (0, 0, *size), border_radius=roundness)
+
+        self.spriteGroup = pygame.sprite.Group()
+        #self.spriteGroup.add(self.animation)
+        self.spriteGroup.add(self.rect)
+
 
         self.lastTime = self.now()
 
@@ -61,10 +95,7 @@ class Gifator:
         return time.time()
 
     def play(self):
-        self.animation.play()
-        sprite_group = pygame.sprite.Group()
-        sprite_group.add(self.animation)
-
+        #self.animation.play()
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -73,12 +104,15 @@ class Gifator:
 
             if self.deltaTime() > 2:
                 self.getRandomGif()
-                sprite_group = pygame.sprite.Group()
-                sprite_group.add(self.animation)
+
 
             self.screen.fill((0, 255, 0))
-            sprite_group.update(self.screen)
-            sprite_group.draw(self.screen)
+
+            self.spriteGroup.update(self.screen)
+            self.spriteGroup.draw(self.screen)
+
+
+
             pygame.display.flip()
 
 
