@@ -1,6 +1,6 @@
 import pygame
 import pygame.gfxdraw
-from gifToframe import get_frames
+from h_lib import get_frames
 import os, random, time
 from threading import Thread, Lock
 
