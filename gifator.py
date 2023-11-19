@@ -11,7 +11,7 @@ import time
 ############################################
 FOLDER = "/home/charlie/Pictures/h"
 SIZE = 800, 600
-TIME_TO_CHAGE_GIF = 2 #secondes!
+TIME_TO_CHANGE_GIF = 2 #secondes!
 ############################################
 
 
