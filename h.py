@@ -1,8 +1,9 @@
 import pygame
 import pygame.gfxdraw
-from h_lib import get_frames
+from h_lib import processImage
 import os, random, time
 from threading import Thread, Lock
+import sys
 
 ############################################
 """       PARAMETERS GO HERE <3          """
@@ -15,25 +16,25 @@ FPS = 60.
 ############################################
 
 pygame.display.set_caption('Hachinator')
-Icon = pygame.image.load('h.jpg')
+scriptDir = os.path.dirname(os.path.abspath(sys.argv[0]))
+Icon = pygame.image.load(os.path.join(scriptDir, 'h.jpg'))
 
 
 ############################################
 class Rectangle(pygame.sprite.Sprite):
     def __init__(self, gif):
         pygame.sprite.Sprite.__init__(self)
-        self.frames = get_frames(gif)
+        self.frames = processImage(gif)
 
         # resize
-        h = self.frames[1][0].get_height()
-        w = self.frames[1][0].get_width()
-        H_ratio = min(h, SIZE[1]) / max(h, SIZE[1])
-        W_ratio = min(w, SIZE[0]) / max(w, SIZE[0])
-        ratio = min(H_ratio, W_ratio)*0.92
+        h = self.frames[0][0].get_height()
+        w = self.frames[0][0].get_width()
+        H_ratio = SIZE[1] / h
+        W_ratio = SIZE[0] / w
+        ratio = min(H_ratio, W_ratio)*0.95
 
         self.posx = (SIZE[0] / 2. - w *ratio/ 2.)
         self.posy = (SIZE[1] / 2. - h *ratio/ 2.)
-
 
         self.original_image = pygame.Surface((w*ratio,h*ratio))
         self.original_image.fill((255, 0, 0))
@@ -42,7 +43,7 @@ class Rectangle(pygame.sprite.Sprite):
         self.image = self.textureImage = self.original_image
         self.rect = self.image.get_rect()
 
-        self.currentFrame = 0
+        self.currentFrame = 1
 
         self.scaling_factor = 1
         self.ptime = time.time()
@@ -77,7 +78,7 @@ class Rectangle(pygame.sprite.Sprite):
             self.currentFrame += 1
 
             if self.currentFrame == len(self.frames):
-                self.currentFrame = 0
+                self.currentFrame = 1
 
             charImage = pygame.transform.scale(charImage, self.original_image.get_size())
             charImage = charImage.convert()

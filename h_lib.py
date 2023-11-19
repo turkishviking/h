@@ -1,84 +1,110 @@
-import pygame
-import time
+import os
 from PIL import Image
+import pygame
+
+'''
+I searched high and low for solutions to the "extract animated GIF frames in Python"
+problem, and after much trial and error came up with the following solution based
+on several partial examples around the web (mostly Stack Overflow).
+There are two pitfalls that aren't often mentioned when dealing with animated GIFs -
+firstly that some files feature per-frame local palettes while some have one global
+palette for all frames, and secondly that some GIFs replace the entire image with
+each new frame ('full' mode in the code below), and some only update a specific
+region ('partial').
+This code deals with both those cases by examining the palette and redraw
+instructions of each frame. In the latter case this requires a preliminary (usually
+partial) iteration of the frames before processing, since the redraw mode needs to
+be consistently applied across all frames. I found a couple of examples of
+partial-mode GIFs containing the occasional full-frame redraw, which would result
+in bad renders of those frames if the mode assessment was only done on a
+single-frame basis.
+Nov 2012
+'''
 
 
-def get_frames(filename):
-    image = Image.open(filename)
-    pal = image.getpalette()
-    base_palette = []
-    for i in range(0, len(pal), 3):
-        rgb = pal[i:i + 3]
-        base_palette.append(rgb)
-
-    all_tiles = []
+def analyseImage(path):
+    '''
+    Pre-process pass over the image to determine the mode (full or additive).
+    Necessary as assessing single frames isn't reliable. Need to know the mode
+    before processing all frames.
+    '''
+    im = Image.open(path)
+    results = {
+        'size': im.size,
+        'mode': 'full',
+    }
     try:
-        while 1:
-            if not image.tile:
-                image.seek(0)
-            if image.tile:
-                all_tiles.append(image.tile[0][3][0])
-            image.seek(image.tell() + 1)
+        while True:
+            if im.tile:
+                tile = im.tile[0]
+                update_region = tile[1]
+                update_region_dimensions = update_region[2:]
+                if update_region_dimensions != im.size:
+                    results['mode'] = 'partial'
+                    break
+            im.seek(im.tell() + 1)
     except EOFError:
-        image.seek(0)
+        pass
+    return results
 
-    all_tiles = tuple(set(all_tiles))
 
-    frames = []
+def processImage(path):
+    '''
+    Iterate the GIF, extracting each frame.
+    '''
+
+    frameList = []
+
+    mode = analyseImage(path)['mode']
+
+    im = Image.open(path)
+    infos = im.info
+
+    i = 0
+    p = im.getpalette()
+    last_frame = im.convert('RGBA')
+
     try:
-        while 1:
-            try:
-                duration = image.info["duration"]
-            except:
-                duration = 100
+        while True:
+            print
+            "saving %s (%s) frame %d, %s %s" % (path, mode, i, im.size, im.tile)
 
-            duration *= .001  # convert to milliseconds!
+            '''
+            If the GIF uses local colour tables, each frame will have its own palette.
+            If not, we need to apply the global palette to the new frame.
+            '''
+            if not im.getpalette():
+                pass
+                #im.putpalette(np.uint8(p).tolist())
+
+            new_frame = Image.new('RGBA', im.size)
+
+            '''
+            Is this file a "partial"-mode GIF where frames update a region of a different size to the entire image?
+            If so, we need to construct the new frame by pasting it on top of the preceding frames.
+            '''
+            if mode == 'partial':
+                new_frame.paste(last_frame)
+
+            new_frame.paste(im, (0, 0), im.convert('RGBA'))
+
+            pi = pygame.image.fromstring(new_frame.tobytes(), new_frame.size, new_frame.mode)
 
 
-            cons = False
+            frameList.append([pi, im.info["duration"]*0.001])
 
-            x0, y0, x1, y1 = (0, 0) + image.size
-            if image.tile:
-                tile = image.tile
-            else:
-                image.seek(0)
-                tile = image.tile
-            if len(tile) > 0:
-                x0, y0, x1, y1 = tile[0][1]
-
-            if all_tiles:
-                if all_tiles in ((6,), (7,)):
-                    cons = True
-                    pal = image.getpalette()
-                    palette = []
-                    for i in range(0, len(pal), 3):
-                        rgb = pal[i:i + 3]
-                        palette.append(rgb)
-                elif all_tiles in ((7, 8), (8, 7)):
-                    pal = image.getpalette()
-                    palette = []
-                    for i in range(0, len(pal), 3):
-                        rgb = pal[i:i + 3]
-                        palette.append(rgb)
-                else:
-                    palette = base_palette
-            else:
-                palette = base_palette
-
-            pi = pygame.image.fromstring(image.tobytes(), image.size, image.mode)
-
-            if "transparency" in image.info:
-                pi.set_colorkey(image.info["transparency"])
-            pi2 = pygame.Surface(image.size, pygame.SRCALPHA)
-            if cons:
-                for i in frames:
-                    pi2.blit(i[0], (0, 0))
-            pi2.blit(pi, (x0, y0), (x0, y0, x1 - x0, y1 - y0))
-
-            frames.append([pi2, duration])
-            image.seek(image.tell() + 1)
+            i += 1
+            last_frame = new_frame
+            im.seek(im.tell() + 1)
     except EOFError:
         pass
 
-    del frames[0]
-    return frames
+    return frameList
+
+def main():
+    processImage('/home/charlie/Pictures/h/giphy.gif')
+    processImage('/home/charlie/Pictures/giphy.webp')
+
+
+if __name__ == "__main__":
+    main()

@@ -75,7 +75,7 @@ class Window(pyglet.window.Window):
         #self.ellipse = self.rectangle - self.ellipse
         self.sprite.draw()
         #self.ellipse.draw()
-        if self.deltaTime() > TIME_TO_CHAGE_GIF:
+        if self.deltaTime() > TIME_TO_CHANGE_GIF:
             self.getRandomGif()
 
     def deltaTime(self):
