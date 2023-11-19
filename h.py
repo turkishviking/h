@@ -119,10 +119,11 @@ class Gifator:
     def getRandomGif(self):
         with self.lock:
             if self.nextGif is not None:
-                rect = self.nextGif
-        if rect is not None:
+                self.rect.kill()
+                self.rect = self.nextGif
+        if self.rect is not None:
             self.spriteGroup = pygame.sprite.Group()
-            self.spriteGroup.add(rect)
+            self.spriteGroup.add(self.rect)
 
             self.thread = Thread(target=self.getNextGif)
             self.thread.start()
